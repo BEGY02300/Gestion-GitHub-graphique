@@ -25,7 +25,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip' # Cache automatique des dépendances pip pour accélérer le workflow
+          cache: 'pip'
 
       - name: Installation des outils de sécurité
         run: |
@@ -34,23 +34,22 @@ jobs:
 
       - name: Exécution de Bandit (analyse statique du code)
         run: |
-          # Analyse récursive avec Bandit, sortie au format SARIF
           bandit -r . -f sarif -o bandit-results.sarif -ll --exit-zero
 
       - name: Upload des résultats Bandit vers GitHub Security
-        uses: github/codeql-action/upload-sarif@v3 # Version stable recommandée
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: bandit-results.sarif
 
       - name: Exécution de Safety (vulnérabilités des dépendances)
         run: |
-          # Génération d'un rapport SARIF pour Safety pour centraliser les alertes dans GitHub Security
+          # Exécute safety et génère le SARIF si possible, sans bloquer le job en cas d'erreur
           safety check --sarif > safety-results.sarif || true
         continue-on-error: true
 
       - name: Upload des résultats Safety vers GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        if: always() && hashFiles('safety-results.sarif') != ''
         with:
           sarif_file: safety-results.sarif
