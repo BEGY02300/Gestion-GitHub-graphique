@@ -1,0 +1,50 @@
+name: Analyse de sécurité Python
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 2 * * 1' # Exécution hebdomadaire le lundi à 2h UTC
+
+permissions:
+  contents: read
+  security-events: write # Nécessaire pour uploader les résultats SARIF
+
+jobs:
+  security-scan:
+    name: Scan de sécurité
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v4
+
+      - name: Configuration de Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installation des outils de sécurité
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit[toml] safety
+
+      - name: Exécution de Bandit (analyse du code)
+        run: |
+          # -r : récursif, -f sarif : format pour GitHub Security, -o : fichier de sortie
+          bandit -r . -f sarif -o bandit-results.sarif -ll
+        continue-on-error: true # Le job continue même si Bandit trouve des problèmes
+
+      - name: Upload des résultats Bandit vers GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() # Toujours uploader, même si l'étape précédente a échoué
+        with:
+          sarif_file: bandit-results.sarif
+
+      - name: Exécution de Safety (vérification des dépendances)
+        run: |
+          # Vérifie les vulnérabilités connues dans les paquets installés
+          safety check --full-report
+        continue-on-error: true
