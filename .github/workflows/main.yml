@@ -44,12 +44,13 @@ jobs:
 
       - name: Exécution de Safety (vulnérabilités des dépendances)
         run: |
-          # Exécute safety et génère le SARIF si possible, sans bloquer le job en cas d'erreur
+          # On tente de générer le rapport sarif, si safety échoue le fichier sera vide ou non créé
           safety check --sarif > safety-results.sarif || true
         continue-on-error: true
 
       - name: Upload des résultats Safety vers GitHub Security
         uses: github/codeql-action/upload-sarif@v4
-        if: always() && hashFiles('safety-results.sarif') != ''
+        # On n'uploade que si le fichier existe ET fait plus de 10 octets (évite les fichiers vides/incomplets)
+        if: always() && hashFiles('safety-results.sarif') != '' && stellar_check_size != 0
         with:
           sarif_file: safety-results.sarif
