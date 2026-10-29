@@ -1,90 +1,93 @@
 # GitHub Desk
 
-Application de bureau en français pour gérer les dépôts GitHub sans utiliser
-le terminal au quotidien.
+GitHub Desk est une application de bureau en français pour gérer ses dépôts,
+branches, pull requests, issues, workflows et plans d'archivage sans utiliser
+le site GitHub au quotidien.
 
-## Démarrer
+## Télécharger l'application
 
-1. Double-clique sur `Nouveau Fichier source Python.bat`.
-2. Au premier lancement, le lanceur prépare un environnement Python isolé,
-   installe pywebview et essaie d'installer GitHub CLI et Git avec winget
-   (ou Chocolatey).
-3. Connecte-toi une première fois avec GitHub CLI si l'application l'indique,
-   puis relance `Nouveau Fichier source Python.bat`.
+Les versions Windows, macOS et Linux sont publiées dans
+[GitHub Releases](https://github.com/BEGY02300/Gestion-GitHub-graphique/releases).
+Télécharge l'archive correspondant à ton système, décompresse-la, puis ouvre
+l'application qu'elle contient. Le site de présentation se trouve dans
+[docs/](./docs/) et sera disponible sur
+[GitHub Pages](https://begy02300.github.io/Gestion-GitHub-graphique/) quand
+Pages sera activé pour ce dépôt.
 
-L'application utilise la connexion enregistrée localement par GitHub CLI ; elle
-ne stocke pas de jeton GitHub dans ses fichiers.
+Chaque publication propose un fichier de sommes SHA-256 pour vérifier que le
+téléchargement n'a pas été altéré. Les versions ne sont pas signées
+actuellement : les sommes de contrôle ne remplacent pas une signature éditeur,
+et les avertissements SmartScreen ou d'autres antivirus peuvent encore
+apparaître. N'ajoute pas l'application aux exclusions antivirus pour contourner
+une alerte ; vérifie le code source et les sommes de contrôle, et signale les
+faux positifs à l'éditeur de sécurité.
 
-## Cache local et synchronisation
+Sous Windows, compare la valeur du fichier `SHA256SUMS-windows.txt` au résultat
+de `Get-FileHash .\\github-desk-windows-x64.zip -Algorithm SHA256`. Sous macOS ou
+Linux, utilise `shasum -a 256 <archive>`.
 
-GitHub Desk ouvre d'abord la dernière copie enregistrée sur ce PC. Au démarrage,
-il demande avant de contacter GitHub s'il faut vérifier les changements ; sans
-copie existante, la première synchronisation est nécessaire. Le bouton
-« Vérifier les changements » relit la liste compacte des dépôts, n'enregistre
-que les dépôts ajoutés ou modifiés et supprime du cache ceux qui ont disparu.
-Les détails, README, branches, issues, pull requests et exécutions déjà lus
-sont gardés dans le cache et chaque page propose une vérification ciblée.
+## Compatibilité et prérequis
 
-Le cache SQLite et l'image de profil sont conservés dans
-`%LOCALAPPDATA%\GitHubDesk\cache.sqlite3`. Il ne contient pas de jeton GitHub.
-Les liens vers les dépôts, issues et pull requests s'ouvrent dans l'application ;
-seul le bouton explicite « Ouvrir sur GitHub… » lance le navigateur.
+- **Windows 10 et 11, x64** : Microsoft Edge WebView2 et GitHub CLI (`gh`).
+- **macOS** : version publiée construite pour l'architecture indiquée dans son
+  nom ; GitHub CLI (`gh`) est requis.
+- **Linux x64** : GTK 3, WebKit2GTK 4.1 et GitHub CLI (`gh`) sont requis.
+- Pour les fonctions d'archivage qui clonent des dépôts, Git est aussi requis.
+- Une connexion GitHub CLI autorisée est nécessaire. Connecte le compte une
+  fois avec `gh auth login` dans un terminal ; les commandes exécutées ensuite
+  par l'application ne créent pas de fenêtre de terminal sur Windows.
 
-## Fonctions
+Les versions publiées sont créées par GitHub Actions depuis le code de ce
+dépôt. Le projet ne télécharge pas de programme tiers en douce et ne désactive
+pas les protections de sécurité.
 
-- Dépôts : liste, filtres, création, renommage, description, visibilité,
-  archivage, réactivation, suppression et copie des fichiers vers une archive
-  privée (créée automatiquement si elle n'existe pas). Les créations peuvent
-  utiliser un modèle Python, Node.js, site web statique ou un dépôt modèle
-  GitHub accessible. La colonne « Plan » permet aussi de choisir, dépôt par
-  dépôt, conserver, archiver, archiver puis supprimer, ou supprimer sans copie.
-- Branches : liste, création depuis une branche existante, renommage et
-  suppression. La branche par défaut et les branches protégées sont bloquées
-  contre la suppression.
-- Pull requests : liste, création, fermeture et fusion. La fusion est refusée
-  si GitHub ne déclare pas la PR propre et fusionnable.
-- Issues : liste, création, modification, fermeture et réouverture.
-- GitHub Actions : consulter les workflows et exécutions, relancer ou annuler
-  une exécution.
-- Statistiques : dépôts privés/publics/archivés, étoiles, forks et langages.
-- Réglages, sécurité et accès : sujets (topics), options de dépôt, alertes de
-  vulnérabilités et invitations/retraits de collaborateurs, selon les droits
-  du compte GitHub.
-- MCP : serveur local compatible MCP en lecture seule et client stdio pour
-  connecter manuellement des serveurs MCP externes.
+## Développement
 
-Les suppressions et autres actions sensibles demandent une confirmation.
-La copie d'archive contient les fichiers de la révision, pas l'historique Git.
-Vérifie toujours la visibilité avant de rendre un dépôt public.
-Pour exécuter un plan de rangement, vérifie la liste résumée puis saisis
-`EXECUTER PLAN`. Une source choisie pour « archiver puis supprimer » n'est
-supprimée qu'après la publication réussie de sa copie dans l'archive privée.
+Python 3.11 ou plus récent est recommandé.
 
-## Modèles de dépôt
+```text
+python -m venv .venv
+python -m pip install -r requirements.txt
+python 1.py
+```
 
-Dans « Nouveau dépôt », choisis un modèle intégré (Python, Node.js ou site
-statique) pour créer un README et des fichiers de départ, ou indique le nom
-`proprietaire/depot` d'un dépôt GitHub configuré comme modèle et accessible à
-ton compte. GitHub crée alors le nouveau dépôt à partir de ce modèle.
+Les commandes de développement sont affichées dans le terminal utilisé pour
+lancer Python. Les versions installables, elles, sont construites sans console.
 
-## MCP
+Pour construire l'application sur le système correspondant :
 
-Dans l'onglet MCP, la configuration affichée permet d'ajouter GitHub Desk comme
-serveur stdio à un client MCP compatible. Les outils exposés sont en lecture
-seule et utilisent l'identité déjà connectée dans GitHub CLI ; ils peuvent donc
-accéder aux dépôts privés auxquels ce compte a accès.
+```text
+python -m pip install -r requirements-build.txt
+python tools/package.py
+```
 
-GitHub Desk peut aussi démarrer des serveurs MCP stdio externes. La commande et
-les arguments sont enregistrés dans
-`%APPDATA%\GitHubDesk\mcp-servers.json`. Un serveur ne démarre qu'après un clic
-sur « Connecter », et ses outils ne s'exécutent qu'après un clic explicite.
-N'ajoute que des programmes de confiance : leurs outils peuvent effectuer des
-actions sur la machine ou les comptes auxquels ils sont connectés. N'inscris pas
-de jeton ou de mot de passe dans les arguments.
+Le paquet est placé dans `dist/`. PyInstaller construit sur le système courant ;
+il ne produit pas un exécutable macOS depuis Windows, ni l'inverse.
 
-## Prérequis
+Pour publier le site, sélectionne **Settings → Pages → Source: GitHub Actions**
+dans les réglages du dépôt. Les changements ultérieurs dans `docs/` déclenchent
+le déploiement automatiquement. Pour créer les paquets, pousse un tag de version
+comme `v1.0.0` ; GitHub Actions construit les trois plateformes et publie les
+archives et leurs sommes SHA-256 dans Releases.
 
-- Windows 10 ou 11 avec Python 3 installé.
-- Une connexion Internet au premier lancement.
-- Un compte GitHub connecté dans GitHub CLI.
-- Le runtime Microsoft Edge WebView2, normalement présent sur Windows récent.
+## Cache, confidentialité et fonctions
+
+GitHub Desk ouvre d'abord la dernière copie enregistrée localement et demande
+avant de vérifier les changements sur GitHub. Les jetons restent gérés par
+GitHub CLI ; l'application n'en enregistre pas dans son cache.
+
+Le cache SQLite et l'image du profil sont stockés dans le dossier utilisateur
+de l'application (`%LOCALAPPDATA%\\GitHubDesk` sous Windows,
+`~/Library/Application Support/GitHubDesk` sous macOS ou
+`$XDG_DATA_HOME/GitHubDesk` sous Linux). Les liens de dépôts, issues et pull
+requests s'ouvrent dans l'application ; seul le bouton explicite « Ouvrir sur
+GitHub… » lance le navigateur.
+
+Fonctions disponibles : dépôts privés et publics, création à partir de modèles,
+branches, pull requests, issues, GitHub Actions, statistiques, options de
+sécurité et d'accès, archivage, favoris locaux et client/serveur MCP. Les
+suppressions et opérations sensibles demandent une confirmation.
+
+Les outils MCP sont en lecture seule côté serveur intégré. Pour un serveur MCP
+externe, n'ajoute que des programmes de confiance : leurs outils peuvent agir
+sur la machine ou sur les comptes auxquels ils sont connectés.

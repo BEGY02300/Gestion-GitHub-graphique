@@ -29,7 +29,7 @@
 <body>
 <div class="layout">
   <aside class="side">
-    <div class="brand"><div class="logo"><span id="avatar-fallback">G</span><img id="user-avatar" alt="Photo de profil GitHub" hidden></div><div><strong>GitHub Desk</strong><small>ton compte, simplement</small></div></div>
+    <div class="brand"><div class="logo"><img id="avatar-fallback" src="assets/github-desk.svg" alt="Icône GitHub Desk"><img id="user-avatar" alt="Photo de profil GitHub" hidden></div><div><strong>GitHub Desk</strong><small>ton compte, simplement</small></div></div>
     <nav class="nav">
       <button class="active" data-view="dashboard"><span class="ico">⌂</span><span>Vue d’ensemble</span></button>
       <button data-view="repositories"><span class="ico">▣</span><span>Dépôts</span></button>
@@ -273,7 +273,7 @@ async function boot(){
   }catch(error){$("account-name").textContent="Connexion impossible";toast(error.message||String(error),true);$("dashboard-cards").innerHTML=`<div class="panel empty">Connexion impossible : ${esc(error.message||String(error))}<br><br><button class="btn" onclick="boot()">Réessayer</button></div>`}
 }
 let bridgeReady=false;
-const bridgeTimer=setTimeout(()=>{if(bridgeReady)return;$("account-name").textContent="Application non démarrée";$("dashboard-cards").innerHTML='<div class="panel empty"><strong>GitHub Desk doit être lancé avec son application de bureau.</strong><br><br>Ferme cette page, puis double-clique sur <b>Nouveau Fichier source Python.bat</b> dans le dossier du projet. Cela ouvre la fenêtre avec la connexion GitHub sécurisée.</div>'},3000);
+const bridgeTimer=setTimeout(()=>{if(bridgeReady)return;$("account-name").textContent="Application non démarrée";$("dashboard-cards").innerHTML='<div class="panel empty"><strong>GitHub Desk doit être lancé avec son application de bureau.</strong><br><br>Ferme cette page, puis ouvre GitHub Desk depuis son application installée. Cela ouvre la fenêtre avec la connexion GitHub sécurisée.</div>'},3000);
 window.addEventListener("pywebviewready",()=>{bridgeReady=true;clearTimeout(bridgeTimer);boot()},{once:true});
 </script>
 </body>

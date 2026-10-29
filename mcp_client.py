@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import atexit
 import json
-import os
 import queue
 import re
 import subprocess
 import threading
-from pathlib import Path
 from typing import Any
+
+from platform_paths import app_data_dir
 
 
 class MCPError(RuntimeError):
@@ -155,10 +155,7 @@ class MCPServerClient:
 
 class MCPClientManager:
     def __init__(self) -> None:
-        app_data = Path(
-            os.environ.get("APPDATA", str(Path.home() / "AppData" / "Roaming"))
-        )
-        self.config_path = app_data / "GitHubDesk" / "mcp-servers.json"
+        self.config_path = app_data_dir(config=True) / "mcp-servers.json"
         self._clients: dict[str, MCPServerClient] = {}
         self._lock = threading.RLock()
         atexit.register(self.close_all)

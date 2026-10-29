@@ -3,23 +3,18 @@ from __future__ import annotations
 import base64
 from contextlib import contextmanager
 import json
-import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
+from platform_paths import app_data_dir
+
 
 class LocalCache:
     def __init__(self, path: Path | None = None) -> None:
         if path is None:
-            root = Path(
-                os.environ.get(
-                    "LOCALAPPDATA",
-                    str(Path.home() / "AppData" / "Local"),
-                )
-            )
-            path = root / "GitHubDesk" / "cache.sqlite3"
+            path = app_data_dir() / "cache.sqlite3"
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self._connection() as connection:

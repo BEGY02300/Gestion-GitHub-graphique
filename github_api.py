@@ -5,6 +5,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import webbrowser
 from pathlib import Path
@@ -14,6 +15,12 @@ from urllib.parse import quote
 
 class GitHubError(RuntimeError):
     pass
+
+
+def _hidden_process_options() -> dict[str, int]:
+    if sys.platform == "win32":
+        return {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
+    return {}
 
 
 class GitHub:
@@ -43,8 +50,8 @@ class GitHub:
     def __init__(self, *, load_initial_data: bool = True) -> None:
         if load_initial_data and shutil.which("gh") is None:
             raise GitHubError(
-                "GitHub CLI (gh) est introuvable. Lance "
-                "Nouveau Fichier source Python.bat pour l'installer."
+                "GitHub CLI (gh) est introuvable. Installe-le depuis "
+                "https://cli.github.com/, puis relance GitHub Desk."
             )
         self.owner = ""
         self.profile: dict[str, Any] = {}
@@ -204,6 +211,7 @@ class GitHub:
                 check=False,
                 input=input_text,
                 timeout=timeout,
+                **_hidden_process_options(),
             )
         except FileNotFoundError as error:
             raise GitHubError("GitHub CLI (gh) est introuvable.") from error
@@ -228,6 +236,7 @@ class GitHub:
                 capture_output=True,
                 check=False,
                 timeout=timeout,
+                **_hidden_process_options(),
             )
         except FileNotFoundError as error:
             raise GitHubError("Git est introuvable.") from error

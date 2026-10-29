@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090e1b">
+  <meta name="description" content="GitHub Desk, une application de bureau claire et locale pour gérer tes dépôts GitHub.">
+  <meta property="og:title" content="GitHub Desk — GitHub, simplement">
+  <meta property="og:description" content="Tes dépôts, branches et pull requests dans une application de bureau, avec un cache local et sans terminal qui s'ouvre à chaque action.">
+  <meta property="og:image" content="assets/github-desk.svg">
+  <title>GitHub Desk — GitHub, simplement</title>
+  <link rel="icon" href="assets/github-desk.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="header">
+    <nav class="container nav" aria-label="Navigation principale">
+      <a class="brand" href="#" aria-label="GitHub Desk, accueil">
+        <img src="assets/github-desk.svg" alt="">
+        <span>GitHub Desk</span>
+      </a>
+      <div class="nav-links">
+        <a href="#fonctionnalites">Fonctionnalités</a>
+        <a href="#confiance">Confidentialité</a>
+        <a href="#compatibilite">Compatibilité</a>
+        <a class="button" href="https://github.com/BEGY02300/Gestion-GitHub-graphique" target="_blank" rel="noreferrer">Voir le code</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="container hero">
+      <div>
+        <div class="eyebrow">Une interface, tes dépôts</div>
+        <h1>GitHub, <span>plus simple.</span></h1>
+        <p class="hero-copy">Gère tes dépôts, branches, issues et pull requests depuis une application de bureau claire. Tes données consultées restent disponibles localement.</p>
+        <div class="actions">
+          <a class="button primary" href="https://github.com/BEGY02300/Gestion-GitHub-graphique/releases/latest">Télécharger l’application <span aria-hidden="true">→</span></a>
+          <a class="button" href="#fonctionnalites">Découvrir les fonctions</a>
+        </div>
+        <p class="fine-print">Windows 10/11 · macOS · Linux · Projet open source</p>
+      </div>
+      <div class="product-card" role="img" aria-label="Aperçu de l'interface GitHub Desk avec ses dépôts et statistiques">
+        <div class="window-top"><i></i><i></i><i></i><span>GitHub Desk</span></div>
+        <div class="window-body">
+          <aside class="mock-sidebar">
+            <div class="mock-brand"><img src="assets/github-desk.svg" alt="">GitHub Desk</div>
+            <div class="mock-menu active">Vue d’ensemble</div>
+            <div class="mock-menu">Dépôts</div>
+            <div class="mock-menu">Branches</div>
+            <div class="mock-menu">Pull requests</div>
+            <div class="mock-menu">Issues</div>
+          </aside>
+          <div class="mock-main">
+            <div class="mock-head">Vue d’ensemble <span class="mock-pill">Copie locale</span></div>
+            <div class="mock-stats">
+              <div class="mock-stat"><small>Dépôts</small><b>32</b></div>
+              <div class="mock-stat"><small>Privés</small><b>18</b></div>
+              <div class="mock-stat"><small>Étoiles</small><b>146</b></div>
+            </div>
+            <div class="mock-repos">
+              <div class="mock-repo"><b>mon-projet-web</b><span class="status">Synchronisé</span></div>
+              <div class="mock-repo"><b>outil-python</b><span>Mis à jour hier</span></div>
+              <div class="mock-repo"><b>portfolio</b><span>Privé</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="fonctionnalites">
+      <div class="container">
+        <div class="section-heading">
+          <div class="eyebrow">Tout au même endroit</div>
+          <h2>Les tâches du quotidien, sans les détours.</h2>
+          <p>Une interface en français pour les opérations courantes, avec une confirmation avant les actions sensibles.</p>
+        </div>
+        <div class="features">
+          <article class="feature"><div class="feature-icon" aria-hidden="true">▣</div><h3>Dépôts et archives</h3><p>Filtre les dépôts, crée à partir de modèles et prépare un plan d’archivage que tu vérifies avant exécution.</p></article>
+          <article class="feature"><div class="feature-icon" aria-hidden="true">⑂</div><h3>Branches et pull requests</h3><p>Consulte les branches, ouvre ou fusionne une PR et garde ses conditions de fusion visibles.</p></article>
+          <article class="feature"><div class="feature-icon" aria-hidden="true">◎</div><h3>Issues et Actions</h3><p>Crée et gère les issues, consulte les workflows et relance ou annule une exécution après confirmation.</p></article>
+          <article class="feature"><div class="feature-icon" aria-hidden="true">◷</div><h3>Cache local</h3><p>Retrouve les dernières données consultées hors ligne, puis choisis quand vérifier les changements sur GitHub.</p></article>
+          <article class="feature"><div class="feature-icon" aria-hidden="true">⌕</div><h3>Navigation intégrée</h3><p>Consulte les détails dans l’application. Le navigateur ne s’ouvre que sur demande explicite.</p></article>
+          <article class="feature"><div class="feature-icon" aria-hidden="true">⌘</div><h3>Compatible MCP</h3><p>Connecte des clients ou serveurs MCP compatibles. Les serveurs externes ne démarrent qu’après ton accord.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="confiance">
+      <div class="container trust">
+        <div>
+          <div class="eyebrow">Clair sur la sécurité</div>
+          <h2>Tu gardes la main sur tes données.</h2>
+          <p class="muted">L’application s’appuie sur les identifiants gérés par GitHub CLI. Elle n’enregistre pas ton jeton dans le cache local et ne télécharge pas d’installateur caché.</p>
+        </div>
+        <div class="trust-panel">
+          <ul class="trust-list">
+            <li><span class="check">✓</span><span>Le cache contient les données affichées, pas le jeton GitHub.</span></li>
+            <li><span class="check">✓</span><span>Les versions sont construites depuis le dépôt avec GitHub Actions.</span></li>
+            <li><span class="check">✓</span><span>Chaque publication fournit une somme SHA-256 vérifiable.</span></li>
+            <li><span class="check">✓</span><span>Les actions destructives demandent une confirmation explicite.</span></li>
+          </ul>
+          <div class="warning">Les exécutables ne sont pas encore signés. Un avertissement SmartScreen ou antivirus reste possible : vérifie le code et la somme de contrôle, et ne désactive pas ta protection.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="compatibilite">
+      <div class="container">
+        <div class="section-heading">
+          <div class="eyebrow">Choisis ton environnement</div>
+          <h2>Une application de bureau sur les trois systèmes.</h2>
+          <p>Les paquets sont construits séparément sur chaque plateforme. Ils ne nécessitent pas Python installé.</p>
+        </div>
+        <div class="platforms">
+          <article class="platform"><h3>Windows 10 &amp; 11</h3><p>Archive avec application sans console. WebView2 et GitHub CLI requis ; Git est nécessaire pour archiver des dépôts.</p></article>
+          <article class="platform"><h3>macOS</h3><p>Application `.app` dans une archive. GitHub CLI requis. Vérifie l’architecture précisée sur la version téléchargée.</p></article>
+          <article class="platform"><h3>Linux</h3><p>Archive x64. GTK 3, WebKit2GTK 4.1 et GitHub CLI requis sur le système.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container download">
+        <div class="eyebrow">Prêt à essayer ?</div>
+        <h2>Commence par la dernière version.</h2>
+        <p>Consulte les fichiers, les notes et les sommes SHA-256 de chaque version avant de l’installer.</p>
+        <a class="button primary" href="https://github.com/BEGY02300/Gestion-GitHub-graphique/releases/latest">Voir les téléchargements <span aria-hidden="true">→</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-row">
+      <span>GitHub Desk · Projet open source indépendant, non affilié à GitHub.</span>
+      <span><a href="https://github.com/BEGY02300/Gestion-GitHub-graphique">Code source</a> · <a href="https://github.com/BEGY02300/Gestion-GitHub-graphique/issues">Signaler un problème</a></span>
+    </div>
+  </footer>
+</body>
+</html>

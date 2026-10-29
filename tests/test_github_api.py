@@ -30,6 +30,32 @@ class GitHubTests(unittest.TestCase):
         self.assertEqual(run.call_args.kwargs["encoding"], "utf-8")
         self.assertEqual(run.call_args.kwargs["errors"], "replace")
 
+    def test_github_commands_do_not_open_windows_console(self):
+        completed = subprocess.CompletedProcess(
+            args=["gh"], returncode=0, stdout="ok", stderr=""
+        )
+        with patch("github_api.sys.platform", "win32"), patch.object(
+            subprocess, "CREATE_NO_WINDOW", 0x08000000, create=True
+        ), patch("github_api.subprocess.run", return_value=completed) as run:
+            self.github._run(["api", "user"], "lecture utilisateur")
+        self.assertEqual(
+            run.call_args.kwargs["creationflags"], 0x08000000
+        )
+
+    def test_git_commands_do_not_open_windows_console(self):
+        completed = subprocess.CompletedProcess(
+            args=["git"], returncode=0, stdout="ok", stderr=""
+        )
+        with patch("github_api.sys.platform", "win32"), patch.object(
+            subprocess, "CREATE_NO_WINDOW", 0x08000000, create=True
+        ), patch("github_api.subprocess.run", return_value=completed) as run:
+            self.github._git(
+                ["status"], "lecture du depot", cwd=Path(".")
+            )
+        self.assertEqual(
+            run.call_args.kwargs["creationflags"], 0x08000000
+        )
+
     def test_startup_loads_account_and_repositories_in_one_request(self):
         body = (
             '{"data":{"viewer":{"login":"test-owner","repositories":'

@@ -1,0 +1,101 @@
+name: Builds multiplateformes
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Build ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            runner: windows-latest
+          - platform: macos
+            runner: macos-latest
+          - platform: linux
+            runner: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Récupération du code
+        uses: actions/checkout@v4
+
+      - name: Préparation des bibliothèques Linux
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev gir1.2-webkit2-4.1 python3-gi python3-gi-cairo
+
+      - name: Configuration de Python
+        if: matrix.platform != 'linux'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Préparation de l'environnement Linux
+        if: matrix.platform == 'linux'
+        run: |
+          python3 -m venv --system-site-packages .venv
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Préparation de l'environnement Windows
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          python -m venv .venv
+          "$PWD\.venv\Scripts" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Préparation de l'environnement macOS
+        if: matrix.platform == 'macos'
+        run: |
+          python -m venv .venv
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Installation des dépendances de build
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-build.txt
+
+      - name: Construction et vérification des paquets
+        run: |
+          python -m unittest discover -s tests -q
+          python tools/package.py
+
+      - name: Publication des fichiers du build
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-${{ matrix.platform }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+            dist/SHA256SUMS-*.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publication de la version
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupération des paquets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: packages-*
+          path: release
+          merge-multiple: true
+
+      - name: Création de la version GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          gh release view "$VERSION" >/dev/null 2>&1 || gh release create "$VERSION" --title "$VERSION" --generate-notes
+          gh release upload "$VERSION" release/* --clobber

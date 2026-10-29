@@ -7,13 +7,18 @@ from pathlib import Path
 from app_api import DesktopApi
 
 
+def resource_path(relative_path: str) -> Path:
+    bundle_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+    return bundle_root / relative_path
+
+
 def main() -> int:
     try:
         webview = import_module("webview")
     except ImportError:
         message = (
             "La fenetre GitHub Desk a besoin de pywebview. "
-            "Lance Nouveau Fichier source Python.bat pour installer les composants."
+            "Installe les dependances indiquees dans le README du projet."
         )
         try:
             import tkinter as tk
@@ -27,7 +32,7 @@ def main() -> int:
             print(message)
         return 1
 
-    interface = Path(__file__).with_name("interface.html")
+    interface = resource_path("interface.html")
     if not interface.is_file():
         raise FileNotFoundError(f"Interface introuvable : {interface}")
 
