@@ -42,14 +42,7 @@ jobs:
         with:
           sarif_file: bandit-results.sarif
 
-      - name: Exécution de Safety (vulnérabilités des dépendances)
+      - name: Exécution de Safety (vérification des dépendances)
         run: |
-          # Exécute safety et génère le SARIF
-          safety check --sarif > safety-results.sarif || true
+          safety check
         continue-on-error: true
-
-      - name: Upload des résultats Safety vers GitHub Security
-        uses: github/codeql-action/upload-sarif@v4
-        if: always()
-        with:
-          sarif_file: safety-results.sarif
