@@ -69,7 +69,11 @@ if errorlevel 1 (
 )
 
 if exist "%LOCALAPPDATA%\Programs\GitHub CLI\gh.exe" set "PATH=%LOCALAPPDATA%\Programs\GitHub CLI;%PATH%"
+if exist "%ProgramFiles%\GitHub CLI\gh.exe" set "PATH=%ProgramFiles%\GitHub CLI;%PATH%"
+if exist "%LOCALAPPDATA%\Microsoft\WinGet\Links\gh.exe" set "PATH=%LOCALAPPDATA%\Microsoft\WinGet\Links;%PATH%"
+if exist "%ProgramData%\chocolatey\bin\gh.exe" set "PATH=%ProgramData%\chocolatey\bin;%PATH%"
 if exist "%ProgramFiles%\Git\cmd\git.exe" set "PATH=%ProgramFiles%\Git\cmd;%PATH%"
+if exist "%ProgramData%\chocolatey\bin\git.exe" set "PATH=%ProgramData%\chocolatey\bin;%PATH%"
 
 if not exist ".venv\Scripts\pythonw.exe" (
     ".venv\Scripts\python.exe" "1.py"

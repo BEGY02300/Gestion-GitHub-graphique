@@ -2,6 +2,7 @@ import subprocess
 import unittest
 from unittest.mock import patch
 
+from app_api import DesktopApi
 from github_api import GitHub, GitHubError
 
 
@@ -19,6 +20,15 @@ class GitHubTests(unittest.TestCase):
         self.assertEqual(result, "ok")
         self.assertEqual(run.call_args.kwargs["encoding"], "utf-8")
         self.assertEqual(run.call_args.kwargs["errors"], "replace")
+
+    def test_api_serializes_boolean_as_a_typed_field(self):
+        with patch.object(self.github, "_run", return_value='{"private":true}') as run:
+            self.github._api(
+                "POST", "user/repos", {"name": "demo", "private": True}
+            )
+        self.assertIn("--field", run.call_args.args[0])
+        self.assertIn("private=true", run.call_args.args[0])
+        self.assertIn("--raw-field", run.call_args.args[0])
 
     def test_default_branch_cannot_be_deleted(self):
         with patch.object(
@@ -75,8 +85,47 @@ class GitHubTests(unittest.TestCase):
 
     def test_private_archive_required_for_snapshot(self):
         with patch.object(self.github, "repository", return_value={"private": False}):
-            with self.assertRaisesRegex(GitHubError, "doit etre prive"):
-                self.github.archive_snapshot("project", "archive")
+            with self.assertRaisesRegex(GitHubError, "n'est pas prive"):
+                self.github.ensure_private_archive("archive")
+
+    def test_missing_archive_is_created_private_and_initialized(self):
+        with patch.object(
+            self.github, "repository", side_effect=GitHubError("HTTP 404: Not Found")
+        ), patch.object(
+            self.github,
+            "create_repository",
+            return_value={"private": True},
+        ) as create:
+            result = self.github.ensure_private_archive("archive")
+        self.assertTrue(result["private"])
+        create.assert_called_once_with(
+            "archive",
+            "Archive privee des projets GitHub",
+            "private",
+            initialize=True,
+        )
+
+    def test_archive_creation_does_not_hide_non_404_errors(self):
+        with patch.object(
+            self.github,
+            "repository",
+            side_effect=GitHubError("HTTP 403: Forbidden"),
+        ), patch.object(self.github, "create_repository") as create:
+            with self.assertRaisesRegex(GitHubError, "403"):
+                self.github.ensure_private_archive("archive")
+        create.assert_not_called()
+
+    def test_delete_bridge_requires_exact_repository_confirmation(self):
+        api = DesktopApi()
+        api.github = self.github
+        with patch.object(self.github, "delete_repository") as delete:
+            result = api.delete_repository("demo", "SUPPRIMER autre/demo")
+        self.assertFalse(result["ok"])
+        delete.assert_not_called()
+
+    def test_external_links_are_restricted_to_github(self):
+        with self.assertRaisesRegex(GitHubError, "HTTPS GitHub"):
+            self.github.open_external("https://example.com/")
 
 
 if __name__ == "__main__":

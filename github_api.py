@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
+import tempfile
 import webbrowser
 from pathlib import Path
 from typing import Any
@@ -128,6 +130,8 @@ class GitHub:
     def create_repository(
         self, name: str, description: str, visibility: str, initialize: bool
     ) -> dict[str, Any]:
+        if not re.fullmatch(r"[A-Za-z0-9._-]{1,100}", name):
+            raise GitHubError("Le nom du depot contient des caracteres non autorises.")
         if visibility not in {"private", "public"}:
             raise GitHubError("Choisis une visibilite privee ou publique.")
         fields: dict[str, Any] = {
@@ -145,16 +149,39 @@ class GitHub:
             raise GitHubError("Aucune modification de depot n'a ete fournie.")
         if updates.get("visibility") not in {None, "private", "public"}:
             raise GitHubError("La visibilite doit etre privee ou publique.")
-        return self._api(
-            "PATCH", f"repos/{self.owner}/{quote(name, safe='')}", updates
-        )
+        if updates.get("name") and not re.fullmatch(
+            r"[A-Za-z0-9._-]{1,100}", str(updates["name"])
+        ):
+            raise GitHubError("Le nom du depot contient des caracteres non autorises.")
+        current_name = name
+        if updates.get("name") and updates["name"] != name:
+            self._api(
+                "PATCH",
+                f"repos/{self.owner}/{quote(name, safe='')}",
+                {"name": updates["name"]},
+            )
+            current_name = str(updates["name"])
+        command = ["repo", "edit", f"{self.owner}/{current_name}"]
+        if "description" in updates:
+            command.extend(["--description", str(updates["description"])])
+        if "homepage" in updates:
+            command.extend(["--homepage", str(updates["homepage"])])
+        if "visibility" in updates:
+            command.extend(
+                [
+                    "--visibility",
+                    str(updates["visibility"]),
+                    "--accept-visibility-change-consequences",
+                ]
+            )
+        if len(command) > 2:
+            self._run(command, f"modification de {current_name}")
+        return self.repository(current_name)
 
     def set_archived(self, name: str, archived: bool) -> dict[str, Any]:
-        return self._api(
-            "PATCH",
-            f"repos/{self.owner}/{quote(name, safe='')}",
-            {"archived": archived},
-        )
+        command = "archive" if archived else "unarchive"
+        self._run(["repo", command, f"{self.owner}/{name}", "--yes"], f"{command} de {name}")
+        return self.repository(name)
 
     def delete_repository(self, name: str) -> None:
         self._api(
@@ -162,6 +189,24 @@ class GitHub:
             f"repos/{self.owner}/{quote(name, safe='')}",
             json_response=False,
         )
+
+    def ensure_private_archive(self, name: str) -> dict[str, Any]:
+        try:
+            archive = self.repository(name)
+        except GitHubError as error:
+            if "404" not in str(error):
+                raise
+            return self.create_repository(
+                name,
+                "Archive privee des projets GitHub",
+                "private",
+                initialize=True,
+            )
+        if archive.get("private") is not True:
+            raise GitHubError(
+                f"Le depot d'archive {name} existe mais n'est pas prive."
+            )
+        return archive
 
     def branches(self, repo: str) -> list[dict[str, Any]]:
         result = self._api(
@@ -364,11 +409,7 @@ class GitHub:
     def archive_snapshot(self, repo: str, archive_name: str) -> str:
         if repo.casefold() == archive_name.casefold():
             raise GitHubError("Le depot d'archive ne peut pas etre sa propre source.")
-        archive = self.repository(archive_name)
-        if archive.get("private") is not True:
-            raise GitHubError("Le depot d'archive doit etre prive.")
-
-        import tempfile
+        self.ensure_private_archive(archive_name)
 
         with tempfile.TemporaryDirectory(prefix="github-archive-") as temp:
             root = Path(temp)
@@ -410,6 +451,24 @@ class GitHub:
                 ["status", "--porcelain"], "verification des changements", cwd=destination
             )
             if status:
+                user = self._json(
+                    self._run(["api", "user"], "lecture de l'identite GitHub"),
+                    "lecture de l'identite GitHub",
+                )
+                user_name = user.get("name") or user.get("login")
+                email = user.get("email") or (
+                    f"{user['id']}+{user['login']}@users.noreply.github.com"
+                )
+                self._git(
+                    ["config", "--local", "user.name", user_name],
+                    "configuration de l'auteur local",
+                    cwd=destination,
+                )
+                self._git(
+                    ["config", "--local", "user.email", email],
+                    "configuration de l'adresse locale",
+                    cwd=destination,
+                )
                 self._git(
                     ["commit", "-m", f"Archive {repo} ({commit[:12]})"],
                     "creation du commit",

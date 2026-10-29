@@ -18,7 +18,8 @@ ne stocke pas de jeton GitHub dans ses fichiers.
 ## Fonctions
 
 - Dépôts : liste, filtres, création, renommage, description, visibilité,
-  archivage, réactivation, suppression et copie des fichiers vers une archive.
+  archivage, réactivation, suppression et copie des fichiers vers une archive
+  privée (créée automatiquement si elle n'existe pas).
 - Branches : liste, création depuis une branche existante, renommage et
   suppression. La branche par défaut et les branches protégées sont bloquées
   contre la suppression.
