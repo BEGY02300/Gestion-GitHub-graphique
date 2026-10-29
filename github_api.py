@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import re
 import shutil
@@ -16,16 +17,94 @@ class GitHubError(RuntimeError):
 
 
 class GitHub:
+    REPOSITORY_TEMPLATES = {
+        "blank": {},
+        "python": {
+            "README.md": "# {name}\n\nProjet Python.\n\n## Demarrage\n\n```powershell\npython main.py\n```\n",
+            "main.py": 'def main() -> None:\n    print("Bonjour depuis {name} !")\n\n\nif __name__ == "__main__":\n    main()\n',
+            "requirements.txt": "# Ajoute ici les dependances Python du projet.\n",
+            ".gitignore": "__pycache__/\n*.py[cod]\n.venv/\n.env\n",
+        },
+        "web": {
+            "README.md": "# {name}\n\nSite web statique. Ouvre `index.html` dans ton navigateur.\n",
+            "index.html": '<!doctype html>\n<html lang="fr">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1">\n  <title>{name}</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <main><h1>Bienvenue !</h1><p>Ton projet commence ici.</p></main>\n  <script src="script.js"></script>\n</body>\n</html>\n',
+            "style.css": "body { margin: 0; font: 1rem system-ui; color: #172033; }\nmain { max-width: 760px; margin: 12vh auto; padding: 0 1.5rem; }\n",
+            "script.js": 'console.log("Projet {name} pret.");\n',
+            ".gitignore": ".DS_Store\n",
+        },
+        "node": {
+            "README.md": "# {name}\n\nProjet Node.js.\n\n## Demarrage\n\n```powershell\nnpm start\n```\n",
+            "index.js": 'console.log("Bonjour depuis {name} !");\n',
+            "package.json": '{\n  "name": "{slug}",\n  "version": "1.0.0",\n  "private": true,\n  "scripts": { "start": "node index.js" }\n}\n',
+            ".gitignore": "node_modules/\n.env\n",
+        },
+    }
+
     def __init__(self) -> None:
         if shutil.which("gh") is None:
             raise GitHubError(
                 "GitHub CLI (gh) est introuvable. Lance "
                 "Nouveau Fichier source Python.bat pour l'installer."
             )
-        self._run(["auth", "status"], "verification de la connexion")
-        self.owner = self._run(["api", "user", "--jq", ".login"], "lecture du compte")
-        if not self.owner:
-            raise GitHubError("Impossible de trouver le compte GitHub connecte.")
+        self.owner = ""
+        self._repositories_cache: list[dict[str, Any]] | None = None
+        self._load_initial_data()
+
+    def _load_initial_data(self) -> None:
+        query = """
+        query($endCursor: String) {
+          viewer {
+            login
+            repositories(first: 100, after: $endCursor, ownerAffiliations: OWNER) {
+              nodes {
+                name
+                nameWithOwner
+                isPrivate
+                isArchived
+                description
+                updatedAt
+                stargazerCount
+                forkCount
+                primaryLanguage { name }
+                url
+                defaultBranchRef { name }
+                homepageUrl
+              }
+              pageInfo { hasNextPage endCursor }
+            }
+          }
+        }
+        """
+        repositories: list[dict[str, Any]] = []
+        cursor: str | None = None
+        while True:
+            args = ["api", "graphql", "-f", f"query={query}"]
+            if cursor:
+                args.extend(["-F", f"endCursor={cursor}"])
+            response = self._json(
+                self._run(args, "connexion et chargement initial"),
+                "connexion et chargement initial",
+            )
+            viewer = response.get("data", {}).get("viewer")
+            page = viewer.get("repositories") if isinstance(viewer, dict) else None
+            if not isinstance(viewer, dict) or not isinstance(page, dict):
+                raise GitHubError(
+                    "GitHub n'a pas renvoye les informations du compte et des depots."
+                )
+            self.owner = str(viewer.get("login") or "")
+            nodes = page.get("nodes")
+            if not self.owner or not isinstance(nodes, list):
+                raise GitHubError("Reponse GitHub incomplete lors de la connexion.")
+            repositories.extend(nodes)
+            page_info = page.get("pageInfo") or {}
+            if not page_info.get("hasNextPage"):
+                break
+            cursor = page_info.get("endCursor")
+            if not cursor:
+                raise GitHubError("GitHub a indique une page suivante sans curseur.")
+        self._repositories_cache = sorted(
+            repositories, key=lambda repo: repo["name"].casefold()
+        )
 
     def _run(
         self,
@@ -33,6 +112,7 @@ class GitHub:
         description: str,
         *,
         cwd: Path | None = None,
+        input_text: str | None = None,
         timeout: int = 120,
     ) -> str:
         try:
@@ -44,6 +124,7 @@ class GitHub:
                 errors="replace",
                 capture_output=True,
                 check=False,
+                input=input_text,
                 timeout=timeout,
             )
         except FileNotFoundError as error:
@@ -105,7 +186,19 @@ class GitHub:
         raw = self._run(args, f"{method} {endpoint}")
         return self._json(raw, f"{method} {endpoint}") if json_response else raw
 
+    def _api_json(self, method: str, endpoint: str, payload: dict[str, Any]) -> Any:
+        raw = self._run(
+            ["api", "--method", method, endpoint, "--input", "-"],
+            f"{method} {endpoint}",
+            input_text=json.dumps(payload, ensure_ascii=False),
+        )
+        return self._json(raw, f"{method} {endpoint}") if raw else {}
+
     def repositories(self) -> list[dict[str, Any]]:
+        if self._repositories_cache is not None:
+            repositories = self._repositories_cache
+            self._repositories_cache = None
+            return repositories.copy()
         raw = self._run(
             [
                 "repo",
@@ -129,22 +222,92 @@ class GitHub:
         return self._api("GET", f"repos/{self.owner}/{quote(name, safe='')}")
 
     def create_repository(
-        self, name: str, description: str, visibility: str, initialize: bool
+        self,
+        name: str,
+        description: str,
+        visibility: str,
+        initialize: bool,
+        template: str = "blank",
     ) -> dict[str, Any]:
         if not re.fullmatch(r"[A-Za-z0-9._-]{1,100}", name):
             raise GitHubError("Le nom du depot contient des caracteres non autorises.")
         if visibility not in {"private", "public"}:
             raise GitHubError("Choisis une visibilite privee ou publique.")
+        if template not in self.REPOSITORY_TEMPLATES:
+            raise GitHubError("Modele de depot inconnu.")
         fields: dict[str, Any] = {
             "name": name,
             "description": description,
             "private": visibility == "private",
-            "auto_init": initialize,
+            "auto_init": initialize or template != "blank",
         }
-        return self._api("POST", "user/repos", fields)
+        repository = self._api("POST", "user/repos", fields)
+        files = self.REPOSITORY_TEMPLATES[template]
+        if not files:
+            return repository
+        try:
+            for path, template_content in files.items():
+                slug = re.sub(r"[^a-z0-9-]+", "-", name.lower()).strip("-") or "project"
+                content = template_content.replace("{name}", name).replace(
+                    "{slug}", slug
+                )
+                file_path = quote(path, safe="/")
+                file_fields: dict[str, Any] = {
+                    "message": f"Add starter template file: {path}",
+                    "content": base64.b64encode(content.encode("utf-8")).decode("ascii"),
+                }
+                if path == "README.md":
+                    current = self._api(
+                        "GET",
+                        f"repos/{self.owner}/{quote(name, safe='')}/contents/{file_path}",
+                    )
+                    sha = current.get("sha")
+                    if not sha:
+                        raise GitHubError("GitHub n'a pas renvoye le SHA du README.")
+                    file_fields["sha"] = sha
+                self._api(
+                    "PUT",
+                    f"repos/{self.owner}/{quote(name, safe='')}/contents/{file_path}",
+                    file_fields,
+                )
+        except GitHubError as error:
+            raise GitHubError(
+                f"Le depot {name} a ete cree, mais son modele n'a pas pu etre "
+                f"entierement installe : {error}"
+            ) from error
+        return self.repository(name)
+
+    def create_from_github_template(
+        self, name: str, description: str, visibility: str, template_repository: str
+    ) -> dict[str, Any]:
+        if not re.fullmatch(r"[A-Za-z0-9._-]{1,100}", name):
+            raise GitHubError("Le nom du depot contient des caracteres non autorises.")
+        if visibility not in {"private", "public"}:
+            raise GitHubError("Choisis une visibilite privee ou publique.")
+        match = re.fullmatch(
+            r"([A-Za-z0-9][A-Za-z0-9-]*)/([A-Za-z0-9._-]{1,100})",
+            template_repository.strip(),
+        )
+        if not match:
+            raise GitHubError("Indique un modele sous la forme proprietaire/depot.")
+        template_owner, template_name = match.groups()
+        self._api(
+            "POST",
+            f"repos/{quote(template_owner, safe='')}/"
+            f"{quote(template_name, safe='')}/generate",
+            {
+                "owner": self.owner,
+                "name": name,
+                "description": description,
+                "private": visibility == "private",
+                "include_all_branches": False,
+            },
+        )
+        return self.repository(name)
 
     def update_repository(self, name: str, fields: dict[str, Any]) -> dict[str, Any]:
-        allowed = {"name", "description", "homepage", "visibility"}
+        boolean_settings = {"delete_branch_on_merge", "has_issues", "has_wiki"}
+        allowed = {"name", "description", "homepage", "visibility"} | boolean_settings
         updates = {key: value for key, value in fields.items() if key in allowed}
         if not updates:
             raise GitHubError("Aucune modification de depot n'a ete fournie.")
@@ -154,6 +317,17 @@ class GitHub:
             r"[A-Za-z0-9._-]{1,100}", str(updates["name"])
         ):
             raise GitHubError("Le nom du depot contient des caracteres non autorises.")
+        boolean_updates = {
+            key: updates.pop(key) for key in boolean_settings if key in updates
+        }
+        if any(not isinstance(value, bool) for value in boolean_updates.values()):
+            raise GitHubError("Les reglages du depot doivent etre vrai ou faux.")
+        if boolean_updates:
+            self._api(
+                "PATCH",
+                f"repos/{self.owner}/{quote(name, safe='')}",
+                boolean_updates,
+            )
         current_name = name
         if updates.get("name") and updates["name"] != name:
             self._api(
@@ -178,6 +352,89 @@ class GitHub:
         if len(command) > 2:
             self._run(command, f"modification de {current_name}")
         return self.repository(current_name)
+
+    def repository_topics(self, repo: str) -> list[str]:
+        result = self._api(
+            "GET", f"repos/{self.owner}/{quote(repo, safe='')}/topics"
+        )
+        topics = result.get("names") if isinstance(result, dict) else None
+        if not isinstance(topics, list):
+            raise GitHubError("GitHub n'a pas renvoye la liste des sujets.")
+        return topics
+
+    def update_repository_topics(self, repo: str, topics: list[str]) -> list[str]:
+        if not isinstance(topics, list) or len(topics) > 20:
+            raise GitHubError("Indique au maximum 20 sujets.")
+        normalized = sorted({topic.strip().lower() for topic in topics if topic.strip()})
+        if any(not re.fullmatch(r"[a-z0-9-]{1,50}", topic) for topic in normalized):
+            raise GitHubError(
+                "Chaque sujet doit utiliser au plus 50 lettres minuscules, chiffres "
+                "ou tirets."
+            )
+        self._api_json(
+            "PUT",
+            f"repos/{self.owner}/{quote(repo, safe='')}/topics",
+            {"names": normalized},
+        )
+        return normalized
+
+    def vulnerability_alerts_enabled(self, repo: str) -> bool:
+        endpoint = f"repos/{self.owner}/{quote(repo, safe='')}/vulnerability-alerts"
+        try:
+            self._run(["api", endpoint], f"lecture des alertes de securite de {repo}")
+        except GitHubError as error:
+            if re.search(r"\b404\b", str(error)):
+                return False
+            raise
+        return True
+
+    def set_vulnerability_alerts(self, repo: str, enabled: bool) -> bool:
+        method = "PUT" if enabled else "DELETE"
+        self._api(
+            method,
+            f"repos/{self.owner}/{quote(repo, safe='')}/vulnerability-alerts",
+            json_response=False,
+        )
+        return enabled
+
+    def collaborators(self, repo: str) -> list[dict[str, Any]]:
+        result = self._api(
+            "GET",
+            f"repos/{self.owner}/{quote(repo, safe='')}/collaborators?per_page=100",
+        )
+        if not isinstance(result, list):
+            raise GitHubError("GitHub n'a pas renvoye la liste des collaborateurs.")
+        return result
+
+    def invite_collaborator(
+        self, repo: str, username: str, permission: str
+    ) -> dict[str, Any]:
+        if not re.fullmatch(
+            r"(?:[A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9-]{0,37}[A-Za-z0-9])",
+            username,
+        ):
+            raise GitHubError("Nom d'utilisateur GitHub invalide.")
+        if permission not in {"pull", "triage", "push", "maintain", "admin"}:
+            raise GitHubError("Niveau d'acces non reconnu.")
+        return self._api(
+            "PUT",
+            f"repos/{self.owner}/{quote(repo, safe='')}/collaborators/"
+            f"{quote(username, safe='')}",
+            {"permission": permission},
+        )
+
+    def remove_collaborator(self, repo: str, username: str) -> None:
+        if not re.fullmatch(
+            r"(?:[A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9-]{0,37}[A-Za-z0-9])",
+            username,
+        ):
+            raise GitHubError("Nom d'utilisateur GitHub invalide.")
+        self._api(
+            "DELETE",
+            f"repos/{self.owner}/{quote(repo, safe='')}/collaborators/"
+            f"{quote(username, safe='')}",
+            json_response=False,
+        )
 
     def set_archived(self, name: str, archived: bool) -> dict[str, Any]:
         command = "archive" if archived else "unarchive"

@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from typing import Any, Callable
 
 from github_api import GitHub, GitHubError
+from mcp_client import MCPClientManager, MCPError
 
 
 class DesktopApi:
     def __init__(self) -> None:
         self.github: GitHub | None = None
+        self.mcp = MCPClientManager()
 
     def _invoke(self, operation: Callable[..., Any], *args: Any) -> dict[str, Any]:
         try:
@@ -20,7 +24,13 @@ class DesktopApi:
     def connect(self) -> dict[str, Any]:
         try:
             self.github = GitHub()
-            return {"ok": True, "data": {"owner": self.github.owner}}
+            return {
+                "ok": True,
+                "data": {
+                    "owner": self.github.owner,
+                    "repositories": self.github.repositories(),
+                },
+            }
         except GitHubError as error:
             return {"ok": False, "error": str(error)}
 
@@ -29,6 +39,9 @@ class DesktopApi:
 
     def stats(self) -> dict[str, Any]:
         return self._invoke(lambda github: github.stats())
+
+    def repository(self, name: str) -> dict[str, Any]:
+        return self._invoke(lambda github: github.repository(name))
 
     def open_external(self, url: str) -> dict[str, Any]:
         def open_link(github: GitHub) -> str:
@@ -39,14 +52,133 @@ class DesktopApi:
         return self._invoke(open_link)
 
     def create_repository(
-        self, name: str, description: str, visibility: str, initialize: bool
+        self,
+        name: str,
+        description: str,
+        visibility: str,
+        initialize: bool,
+        template: str = "blank",
     ) -> dict[str, Any]:
         return self._invoke(
-            lambda github: github.create_repository(name, description, visibility, initialize)
+            lambda github: github.create_repository(
+                name, description, visibility, initialize, template
+            )
         )
+
+    def create_from_github_template(
+        self, name: str, description: str, visibility: str, template_repository: str
+    ) -> dict[str, Any]:
+        return self._invoke(
+            lambda github: github.create_from_github_template(
+                name, description, visibility, template_repository
+            )
+        )
+
+    @staticmethod
+    def mcp_server_config() -> dict[str, Any]:
+        server = Path(__file__).with_name("mcp_server.py").resolve()
+        executable = Path(sys.executable)
+        if executable.name.casefold() == "pythonw.exe":
+            console_executable = executable.with_name("python.exe")
+            if console_executable.is_file():
+                executable = console_executable
+        return {
+            "ok": True,
+            "data": {"command": str(executable), "args": ["-u", str(server)]},
+        }
+
+    def mcp_servers(self) -> dict[str, Any]:
+        try:
+            return {"ok": True, "data": self.mcp.servers()}
+        except MCPError as error:
+            return {"ok": False, "error": str(error)}
+
+    def mcp_add_server(
+        self, name: str, command: str, args: list[str]
+    ) -> dict[str, Any]:
+        try:
+            return {"ok": True, "data": self.mcp.add_server(name, command, args)}
+        except MCPError as error:
+            return {"ok": False, "error": str(error)}
+
+    def mcp_remove_server(self, name: str) -> dict[str, Any]:
+        try:
+            self.mcp.remove_server(name)
+            return {"ok": True, "data": True}
+        except MCPError as error:
+            return {"ok": False, "error": str(error)}
+
+    def mcp_disconnect(self, name: str) -> dict[str, Any]:
+        try:
+            self.mcp.disconnect(name)
+            return {"ok": True, "data": True}
+        except MCPError as error:
+            return {"ok": False, "error": str(error)}
+
+    def mcp_connect(self, name: str) -> dict[str, Any]:
+        try:
+            return {"ok": True, "data": self.mcp.connect(name)}
+        except MCPError as error:
+            return {"ok": False, "error": str(error)}
+
+    def mcp_tools(self, name: str) -> dict[str, Any]:
+        try:
+            return {"ok": True, "data": self.mcp.tools(name)}
+        except MCPError as error:
+            return {"ok": False, "error": str(error)}
+
+    def mcp_call_tool(
+        self, server_name: str, tool_name: str, arguments: dict[str, Any]
+    ) -> dict[str, Any]:
+        try:
+            return {
+                "ok": True,
+                "data": self.mcp.call_tool(server_name, tool_name, arguments),
+            }
+        except MCPError as error:
+            return {"ok": False, "error": str(error)}
 
     def update_repository(self, name: str, updates: dict[str, Any]) -> dict[str, Any]:
         return self._invoke(lambda github: github.update_repository(name, updates))
+
+    def repository_topics(self, name: str) -> dict[str, Any]:
+        return self._invoke(lambda github: github.repository_topics(name))
+
+    def update_repository_topics(self, name: str, topics: list[str]) -> dict[str, Any]:
+        return self._invoke(
+            lambda github: github.update_repository_topics(name, topics)
+        )
+
+    def vulnerability_alerts_enabled(self, name: str) -> dict[str, Any]:
+        return self._invoke(lambda github: github.vulnerability_alerts_enabled(name))
+
+    def set_vulnerability_alerts(
+        self, name: str, enabled: bool
+    ) -> dict[str, Any]:
+        return self._invoke(
+            lambda github: github.set_vulnerability_alerts(name, enabled)
+        )
+
+    def collaborators(self, name: str) -> dict[str, Any]:
+        return self._invoke(lambda github: github.collaborators(name))
+
+    def invite_collaborator(
+        self, name: str, username: str, permission: str
+    ) -> dict[str, Any]:
+        return self._invoke(
+            lambda github: github.invite_collaborator(name, username, permission)
+        )
+
+    def remove_collaborator(
+        self, name: str, username: str, confirmation: str
+    ) -> dict[str, Any]:
+        def remove(github: GitHub) -> str:
+            if confirmation != f"RETIRER {username}":
+                raise GitHubError("Confirmation incorrecte. Collaborateur conserve.")
+            github.remove_collaborator(name, username)
+            return f"Acces de {username} retire."
+
+        return self._invoke(remove)
 
     def set_archived(self, name: str, archived: bool) -> dict[str, Any]:
         return self._invoke(lambda github: github.set_archived(name, archived))
