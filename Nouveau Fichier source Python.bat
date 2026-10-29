@@ -27,10 +27,22 @@ if not exist ".venv\Scripts\python.exe" (
     )
 )
 
+".venv\Scripts\python.exe" -c "import pip" >nul 2>nul
+if errorlevel 1 (
+    echo Preparation de pip dans l'environnement Python...
+    ".venv\Scripts\python.exe" -m ensurepip --upgrade
+    if errorlevel 1 (
+        echo Impossible d'initialiser pip avec ensurepip.
+        echo Verifie que ton installation Python inclut le module ensurepip.
+        pause
+        exit /b 1
+    )
+)
+
 ".venv\Scripts\python.exe" -c "import webview" >nul 2>nul
 if errorlevel 1 (
     echo Installation des composants de l'application...
-    ".venv\Scripts\python.exe" -m pip install -r requirements.txt
+    ".venv\Scripts\python.exe" -m pip install --disable-pip-version-check -r requirements.txt
     if errorlevel 1 (
         echo Installation impossible. Verifie ta connexion Internet et relance.
         pause
