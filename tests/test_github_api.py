@@ -5,10 +5,12 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from app_api import DesktopApi
 from github_api import GitHub, GitHubError
+from local_cache import LocalCache
 from mcp_client import MCPClientManager, MCPServerClient
 from mcp_server import handle_message
 
@@ -233,6 +235,23 @@ class GitHubTests(unittest.TestCase):
         self.assertEqual(servers[0]["name"], "local-test")
         self.assertFalse(servers[0]["connected"])
 
+    def test_repository_branch_lists_use_local_cache_until_explicit_refresh(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cache = LocalCache(Path(directory) / "cache.sqlite3")
+            api = DesktopApi.__new__(DesktopApi)
+            api.cache = cache
+            api.cached_profile = {}
+            api.github = self.github
+            cache.set_resource("test-owner/demo/branches", [{"name": "cached"}])
+            with patch.object(
+                self.github, "branches", return_value=[{"name": "live"}]
+            ) as request:
+                cached = api.branches("demo")
+                fresh = api.branches("demo", True)
+        self.assertEqual(cached["data"], [{"name": "cached"}])
+        self.assertEqual(fresh["data"], [{"name": "live"}])
+        request.assert_called_once_with("demo")
+
     def test_default_branch_cannot_be_deleted(self):
         with patch.object(
             self.github, "repository", return_value={"default_branch": "main"}
@@ -319,7 +338,8 @@ class GitHubTests(unittest.TestCase):
         create.assert_not_called()
 
     def test_delete_bridge_requires_exact_repository_confirmation(self):
-        api = DesktopApi()
+        with patch("app_api.LocalCache"):
+            api = DesktopApi()
         api.github = self.github
         with patch.object(self.github, "delete_repository") as delete:
             result = api.delete_repository("demo", "SUPPRIMER autre/demo")

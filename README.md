@@ -15,6 +15,21 @@ le terminal au quotidien.
 L'application utilise la connexion enregistrée localement par GitHub CLI ; elle
 ne stocke pas de jeton GitHub dans ses fichiers.
 
+## Cache local et synchronisation
+
+GitHub Desk ouvre d'abord la dernière copie enregistrée sur ce PC. Au démarrage,
+il demande avant de contacter GitHub s'il faut vérifier les changements ; sans
+copie existante, la première synchronisation est nécessaire. Le bouton
+« Vérifier les changements » relit la liste compacte des dépôts, n'enregistre
+que les dépôts ajoutés ou modifiés et supprime du cache ceux qui ont disparu.
+Les détails, README, branches, issues, pull requests et exécutions déjà lus
+sont gardés dans le cache et chaque page propose une vérification ciblée.
+
+Le cache SQLite et l'image de profil sont conservés dans
+`%LOCALAPPDATA%\GitHubDesk\cache.sqlite3`. Il ne contient pas de jeton GitHub.
+Les liens vers les dépôts, issues et pull requests s'ouvrent dans l'application ;
+seul le bouton explicite « Ouvrir sur GitHub… » lance le navigateur.
+
 ## Fonctions
 
 - Dépôts : liste, filtres, création, renommage, description, visibilité,

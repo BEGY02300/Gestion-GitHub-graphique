@@ -40,21 +40,26 @@ class GitHub:
         },
     }
 
-    def __init__(self) -> None:
-        if shutil.which("gh") is None:
+    def __init__(self, *, load_initial_data: bool = True) -> None:
+        if load_initial_data and shutil.which("gh") is None:
             raise GitHubError(
                 "GitHub CLI (gh) est introuvable. Lance "
                 "Nouveau Fichier source Python.bat pour l'installer."
             )
         self.owner = ""
+        self.profile: dict[str, Any] = {}
         self._repositories_cache: list[dict[str, Any]] | None = None
-        self._load_initial_data()
+        if load_initial_data:
+            self.refresh_initial_data()
 
-    def _load_initial_data(self) -> None:
+    def refresh_initial_data(self) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         query = """
         query($endCursor: String) {
           viewer {
             login
+            name
+            url
+            avatarUrl
             repositories(first: 100, after: $endCursor, ownerAffiliations: OWNER) {
               nodes {
                 name
@@ -92,6 +97,12 @@ class GitHub:
                     "GitHub n'a pas renvoye les informations du compte et des depots."
                 )
             self.owner = str(viewer.get("login") or "")
+            self.profile = {
+                "login": self.owner,
+                "name": viewer.get("name") or "",
+                "url": viewer.get("url") or f"https://github.com/{self.owner}",
+                "avatarUrl": viewer.get("avatarUrl") or "",
+            }
             nodes = page.get("nodes")
             if not self.owner or not isinstance(nodes, list):
                 raise GitHubError("Reponse GitHub incomplete lors de la connexion.")
@@ -105,6 +116,73 @@ class GitHub:
         self._repositories_cache = sorted(
             repositories, key=lambda repo: repo["name"].casefold()
         )
+        return self.profile.copy(), self.repositories()
+
+    def load_cached_data(
+        self,
+        profile: dict[str, Any],
+        repositories: list[dict[str, Any]],
+    ) -> None:
+        self.profile = profile.copy()
+        self.owner = str(profile.get("login") or "")
+        self._repositories_cache = sorted(
+            repositories, key=lambda repo: repo["name"].casefold()
+        )
+
+    def update_cached_repository(self, repository: dict[str, Any]) -> None:
+        if self._repositories_cache is None:
+            self._repositories_cache = []
+        name = str(repository.get("name") or "")
+        if not name:
+            return
+        existing = next(
+            (
+                item
+                for item in self._repositories_cache
+                if str(item.get("name", "")).casefold() == name.casefold()
+            ),
+            {},
+        )
+        normalized = existing.copy()
+        normalized.update(repository)
+        if "private" in repository:
+            normalized["isPrivate"] = repository["private"]
+        if "archived" in repository:
+            normalized["isArchived"] = repository["archived"]
+        if "html_url" in repository:
+            normalized["url"] = repository["html_url"]
+        if "updated_at" in repository:
+            normalized["updatedAt"] = repository["updated_at"]
+        if "stargazers_count" in repository:
+            normalized["stargazerCount"] = repository["stargazers_count"]
+        if "forks_count" in repository:
+            normalized["forkCount"] = repository["forks_count"]
+        if "language" in repository:
+            normalized["primaryLanguage"] = (
+                {"name": repository["language"]} if repository["language"] else None
+            )
+        if "default_branch" in repository:
+            normalized["defaultBranchRef"] = {"name": repository["default_branch"]}
+        if "homepage" in repository:
+            normalized["homepageUrl"] = repository["homepage"]
+        normalized.setdefault("nameWithOwner", f"{self.owner}/{name}")
+        self._repositories_cache = [
+            item
+            for item in self._repositories_cache
+            if str(item.get("name", "")).casefold() != name.casefold()
+        ]
+        self._repositories_cache.append(normalized)
+        self._repositories_cache.sort(
+            key=lambda item: str(item.get("name", "")).casefold()
+        )
+
+    def remove_cached_repository(self, name: str) -> None:
+        if self._repositories_cache is not None:
+            self._repositories_cache = [
+                repository
+                for repository in self._repositories_cache
+                if str(repository.get("name", "")).casefold() != name.casefold()
+            ]
 
     def _run(
         self,
@@ -196,9 +274,7 @@ class GitHub:
 
     def repositories(self) -> list[dict[str, Any]]:
         if self._repositories_cache is not None:
-            repositories = self._repositories_cache
-            self._repositories_cache = None
-            return repositories.copy()
+            return self._repositories_cache.copy()
         raw = self._run(
             [
                 "repo",
@@ -220,6 +296,23 @@ class GitHub:
 
     def repository(self, name: str) -> dict[str, Any]:
         return self._api("GET", f"repos/{self.owner}/{quote(name, safe='')}")
+
+    def repository_readme(self, name: str) -> dict[str, Any]:
+        result = self._api(
+            "GET", f"repos/{self.owner}/{quote(name, safe='')}/readme"
+        )
+        content = result.get("content")
+        if result.get("encoding") == "base64" and isinstance(content, str):
+            try:
+                decoded = base64.b64decode(content, validate=False).decode(
+                    "utf-8", errors="replace"
+                )
+            except ValueError as error:
+                raise GitHubError("Le README de ce depot est invalide.") from error
+            result["content"] = decoded
+        elif not isinstance(content, str):
+            result["content"] = ""
+        return result
 
     def create_repository(
         self,
