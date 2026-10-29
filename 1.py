@@ -13,7 +13,7 @@ def main() -> int:
     except ImportError:
         message = (
             "La fenetre GitHub Desk a besoin de pywebview. "
-            "Lance Lancer.bat pour installer les composants automatiquement."
+            "Lance Nouveau Fichier source Python.bat pour installer les composants."
         )
         try:
             import tkinter as tk

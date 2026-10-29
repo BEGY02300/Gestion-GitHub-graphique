@@ -19,7 +19,8 @@ class GitHub:
     def __init__(self) -> None:
         if shutil.which("gh") is None:
             raise GitHubError(
-                "GitHub CLI (gh) est introuvable. Lance Lancer.bat pour l'installer."
+                "GitHub CLI (gh) est introuvable. Lance "
+                "Nouveau Fichier source Python.bat pour l'installer."
             )
         self._run(["auth", "status"], "verification de la connexion")
         self.owner = self._run(["api", "user", "--jq", ".login"], "lecture du compte")

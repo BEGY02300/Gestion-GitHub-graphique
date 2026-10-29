@@ -5,12 +5,12 @@ le terminal au quotidien.
 
 ## Démarrer
 
-1. Double-clique sur `Lancer.bat`.
+1. Double-clique sur `Nouveau Fichier source Python.bat`.
 2. Au premier lancement, le lanceur prépare un environnement Python isolé,
    installe pywebview et essaie d'installer GitHub CLI et Git avec winget
    (ou Chocolatey).
 3. Connecte-toi une première fois avec GitHub CLI si l'application l'indique,
-   puis relance `Lancer.bat`.
+   puis relance `Nouveau Fichier source Python.bat`.
 
 L'application utilise la connexion enregistrée localement par GitHub CLI ; elle
 ne stocke pas de jeton GitHub dans ses fichiers.
